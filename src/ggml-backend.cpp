@@ -977,6 +977,8 @@ struct ggml_backend_sched {
 
     bool op_offload;
 
+    bool op_offload_all;
+
     int debug;
 
     // graph size of the current and the previous scheduling, used by the realloc callback and for debugging
@@ -1117,7 +1119,8 @@ static int ggml_backend_sched_backend_id_from_cur(ggml_backend_sched_t sched, st
                 // check if a backend with higher prio wants to offload the op
                 if (sched->op_offload && src_backend_id == sched->n_backends - 1 && ggml_backend_buffer_is_host(src->buffer)) {
                     for (int b = 0; b < src_backend_id; b++) {
-                        if (ggml_backend_supports_op(sched->backends[b], tensor) && ggml_backend_offload_op(sched->backends[b], tensor)) {
+                        if (ggml_backend_supports_op(sched->backends[b], tensor) &&
+                            (sched->op_offload_all || ggml_backend_offload_op(sched->backends[b], tensor))) {
                             SET_CAUSE(tensor, "1.off");
                             return b;
                         }
@@ -2045,6 +2048,13 @@ void ggml_backend_sched_free(ggml_backend_sched_t sched) {
     free(sched->graph.nodes);
     free(sched->graph.leafs);
     free(sched);
+}
+
+void ggml_backend_sched_set_op_offload_all(ggml_backend_sched_t sched, bool op_offload_all) {
+    if (sched == NULL) {
+        return;
+    }
+    sched->op_offload_all = op_offload_all;
 }
 
 void ggml_backend_sched_reset(ggml_backend_sched_t sched) {
